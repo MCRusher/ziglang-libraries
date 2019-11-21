@@ -95,7 +95,7 @@ pub fn DList(comptime T: type) type {
         pub fn deinit(self: DList(T)) void {
             var prev: *DList(T).Node = undefined;
             var node = self.first;
-            while(node != null){
+            while(node!=null){
                 prev = node.?;
                 node = prev.next;
                 self.allocator.destroy(prev);
