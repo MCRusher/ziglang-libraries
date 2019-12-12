@@ -8,12 +8,12 @@ const Stream = std.io.OutStream(std.os.WriteError);
 
 const Animal = struct {
     const Self = @This();
-    const SpeakFn = fn(*const Self, *Stream) void;
+    const SpeakFn = fn(Self) []const u8;
 
     speakFn: SpeakFn,
 
-    fn speak(self: *const Self, stream: *Stream) void {
-        return self.speakFn(self,stream);
+    fn speak(self: Self) []const u8 {
+        return self.speakFn(self);
     }
 };
 
@@ -41,9 +41,13 @@ const Dog = struct {
         self.allocator.free(self.name);
     }
 
-    fn speak(animal: *const Animal, stream: *Stream) void {
-        const self = @fieldParentPtr(Self,"animal",animal);
-        stream.print("{} says {}\n",self.name,"Woof!") catch {};
+    fn speak(animal: Animal) []const u8 {
+        //can actually access state through animal
+        // as long as is stored in memory and
+        // animal arg is a pointer rather than value type:
+        //const self = @fieldParentPtr(Dog,"animal",animal);
+        //warn("{} says {}\n",self.name,"Woof!");
+        return "Woof!";
     }
 };
 
@@ -71,11 +75,14 @@ const Cat = struct {
         self.allocator.free(self.name);
     }
 
-    fn speak(animal: *const Animal, stream: *Stream) void {
-        const self = @fieldParentPtr(Self,"animal",animal);
-        stream.print("{} says {}\n",self.name,"Meow!") catch {};
+    fn speak(animal: Animal) []const u8 {
+        return "Meow!";
     }
 };
+
+fn speaker(stream: *Stream, animal: *const Animal) !void {
+    try stream.print("{}\n",animal.speak());
+}
 
 pub fn main() !void {
     const allocator = std.heap.direct_allocator;
@@ -84,14 +91,23 @@ pub fn main() !void {
     //var stdout_state = (try std.io.getStdOut()).outStream();
     //var stdout = &stdout_state.stream;
     
+    //without state, memory would leak.
     const dog_state = try Dog.init(allocator,"Jeff");
     defer dog_state.deinit();
     const dog = &dog_state.animal;
     const cat_state = try Cat.init(allocator,"Will");
     defer cat_state.deinit();
     const cat = &cat_state.animal;
+    
+    try speaker(stdout,dog);
+    try speaker(stdout,cat);
 
+    //vs
 
-    dog.speak(stdout);
-    cat.speak(stdout);
+    const adog = try Dog.init(allocator,"Jeff");
+    defer adog.deinit();
+    const acat = try Cat.init(allocator,"Will");
+    defer acat.deinit();
+    try stdout.print("{} says {}\n",adog.name,adog.animal.speak());
+    try stdout.print("{} says {}\n",acat.name,acat.animal.speak());
 }
